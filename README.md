@@ -4,7 +4,7 @@ Material for the Computational Neuroscience tutorial 2025-11-13
 
 # Attendance sheet
 
-Please sign-in to register your attendance.
+Please [sign-in](signin.png) to register your attendance.
 
 # Getting started
 
