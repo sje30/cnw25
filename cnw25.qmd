@@ -17,15 +17,15 @@ This section sets up the packages required for this document.  This
 takes a few minutes to run, so we will start it and "leave it cooking".
 
 ```{julia}
-#| eval: false
+#| eval: true
 import Pkg
 Pkg.add("Plots")
-Pkg.add("OrdinaryDiffEq")
+Pkg.add("SimpleDiffEq")
 ```
 
 ```{julia}
 using Plots
-using OrdinaryDiffEq
+using SimpleDiffEq
 ```
 
 
@@ -173,7 +173,7 @@ function plot_hh(;i=10)
 	prob = ODEProblem(hhode!,u0,tspan,p)
 	
 	##sol = solve(prob,Vern7());
-    sol = solve(prob);
+    sol = solve(prob, SimpleRK4(), dt = 0.01);
 	
 	
 	l = @layout [a b; c d]
