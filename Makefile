@@ -1,4 +1,4 @@
-PDF = simple.pdf
+PDF = simple.pdf cnw25.pdf
 
 NB = $(PDF:.pdf=.ipynb)
 

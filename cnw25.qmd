@@ -1,5 +1,7 @@
 ---
-title: "A julia engine notebook"
+title: "Introduction to Computational Neuroscience"
+author: "Stephen J Eglen"
+date: "2025-11-13"
 engine: julia
 format:
   typst:
@@ -9,7 +11,13 @@ format:
 ---
 
 
+# Installation
+
+This section sets up the packages required for this document.  This
+takes a few minutes to run, so we will start it and "leave it cooking".
+
 ```{julia}
+#| eval: false
 import Pkg
 Pkg.add("Plots")
 Pkg.add("OrdinaryDiffEq")
@@ -21,22 +29,252 @@ using OrdinaryDiffEq
 ```
 
 
+
+
+
+# Introduction
+
+* "All models are wrong but some are useful"  (Box, 1976?)
+* Introduction to modelling in computational neuroscience
+
+# Background maths
+
+
+## Euler integration
+
+Given some differential equation for how x changes over time and so
+initial condition (i.e. x = some value at time t = 0), we can
+integrate them numerically using Euler integration.
+
+$\frac{dx}{dt} = f(x,t)$
+
+$x_{n+1} = x_{n}+ h \frac{dx}{dt}$
+
+$x_{n+1} = x_{n}+ h f(x_{n}, nh)$
+
+Depending on the step-size h.
+
+## Trappenberg example (Appendix B)
+
+Solve differential equation
+
+$\frac{dx}{dt} = t -x + 1$
+
+with initial conditions $x(0) = 1$.
+
+Known solution:
+
+$x(t) = \exp(-t) + t$
+
 ```{julia}
-1 + 2
+function euler1(h)
+	tmax = 5.0;                               # max t value
+	init = 1.0;                               # initial condition
+	
+	t = 0:h:tmax;                           # vector of time values
+	nsteps = length(t);                     # how many steps
+	x = zeros(nsteps,1);                    # where we will store
+	# results
+	x[1] = init;
+	
+	
+	# Start the integration
+	for i=1:(nsteps-1)
+	    f = t[i] - x[i] + 1;                # evaluate dx/dt
+	    x[i+1] = x[i] + (h*f);
+	end
+	## why need space?
+	hcat(t, x)
+end
+
+function plot_euler1(h)
+	res = euler1(h);
+	t = res[:,1]
+	x = res[:,2]
+	xtrue = @. exp(-t) + t;                    # true solution
+	
+	plot(t, hcat(x, xtrue), legend=:topleft,
+		 ylim=(0,5),
+		 xlim=(0,5),
+         marker=:o,
+	     title = "Euler integration",
+	     xlabel="Time (s)", ylabel="x",
+	     label=["estimate" "true"])
+end
 ```
 
 
-Now let us try some plotting:
 
 ```{julia}
-x = 0:0.01:4pi
-y = sin.(x)
-plot(x,y)
-xlabel!("time (s)")
-ylabel!("amplitude")
+h_step = 0.5   # adjust between 0.01 and 1
+plot_euler1(h_step)
 ```
 
 
+
+# Hodgkin-Huxley model
+
+
+## Reminder of the biology
+
+Its all in the channels!
+
+[http://tinyurl.com/matthews-channel](http://tinyurl.com/matthews-channel)
+
+## Reminder of the mathematics
+
+See [hh_maths.pdf](hh_maths.pdf)
+
+
+Julia has built-in functions for efficient numerical integration of
+ODEs.  We will use them here so that we focus on the problem and not the
+numerics.
+    
+
+```{julia}
+function hhode!(dy, y, p, t)
+	v = y[1]; m = y[2]; n = y[3]; h = y[4];
+	
+	# Some constants of the system.
+	I = p[1]
+	gna = 1200; gk=360; gl=3;
+	El=-54.387; Ek=-77.0; Ena=100.0;
+	C = 10;
+	
+	
+	am = 0.1*(v+40)/(1-exp(-(v+40)/10));
+	bm = 4*exp(-(v+65)/18);
+	
+	ah = 0.07*exp(-(v+65)/20);
+	bh = 1/(1+exp(-(v+35)/10));
+	
+	an = 0.01*(v+55)/(1-exp(-(v+55)/10));
+	bn = 0.125*exp(-(v+65)/80);
+	
+	dv = (I - gna*h*(v-Ena)*m^3-gk*(v-Ek)*n^4-gl*(v-El))/C;
+	
+	dm = am*(1-m) -bm*m;
+	dh = ah*(1-h) -bh*h;
+	dn = an*(1-n) -bn*n;
+	
+	# Return derivatives
+	dy[1]=dv;
+	dy[2]=dm;
+	dy[3]=dn;
+	dy[4]=dh;
+	
+end
+
+
+function plot_hh(;i=10)
+	u0 = [-65.0;0.0529;0.3177;0.5961]
+	tspan = (0.0,500.0)
+	p = [i]
+	prob = ODEProblem(hhode!,u0,tspan,p)
+	
+	sol = solve(prob,Vern7());
+	
+	
+	l = @layout [a b; c d]
+	p1 = plot(sol.t, sol[1,:], xlabel="t (ms)", ylabel= "V (mv)", 
+			  ylim=(-70,60), legend=false);
+	p2 = plot(sol.t, sol[2,:], xlabel="t (ms)", ylabel= "m", 
+			  ylim=(0,1), legend=false);
+	p3 = plot(sol.t, sol[3,:], xlabel="t (ms)", ylabel= "n", 
+			  ylim=(0,1), legend=false);
+	p4 = plot(sol.t, sol[4,:], xlabel="t (ms)", ylabel= "h", 
+			  ylim=(0,1), legend=false);
+	plot(p1, p2, p3, p4, layout = l)
+end
+```
+
+
+Run with default I=0.1 and then compare with I=10.
+
+
+```{julia}
+i_step = 0.05
+plot_hh(i=i_step)
+```
+
+
+## Exercises
+
+1. Can you find the critical value of I where you first generate a spike?
+
+2. Can you work out the units on I (check equation 1 and Table 1 of
+   hh_maths.pdf )?
+
+3. Estimate the firing rate (in Hz) for the model as you vary I from 0
+   to 500.  Can you plot a graph of it?  
+   
+4. (Advanced) Apply a pulse of negative current with I=-50
+   for 5 ms followed by I=0 and describe what happens.
+
+5. Try other manipulations, e.g. what if you set dh/dt to
+   zero?  What would this simulate?
+
+
+# Izhikevich models
+
+
+Let's simplify the models as far as we can; we are going to use the
+simplification due to Izhikevich.
+
+Read [the basic description](http://www.izhikevich.org/human_brain_simulation/Blue_Brain.htm#models%20of%20spiking%20neurons)
+and guess which is the real data.
+
+## The basic model
+
+![the basic model](http://www.izhikevich.org/publications/izhik.gif)
+
+
+## Exercise: Izhikevich
+
+1. [izh.jl](izh.jl) has the basic code for one of the models.  Try to
+   adapt using parameters a,b,c,d to generate each of the plots from
+   above.  e.g. how can you make a chattering cell (CH)?
+
+2. Explore [figure1.jl](figure1.jl).  This regenerates figure 1 of the
+   [2004 paper](http://www.izhikevich.org/publications/whichmod.pdf).
+   See if you can follow in the code how the model is adapted in each
+   case.
+
+```{julia}
+function izh(;a=0.02,b=0.2, c=-65.0, d=6.0)
+    #a=0.02; b=0.2;  c=-65;  d=6;
+    V=-70;  u=b*V;
+    VV=[];  uu=[];
+    tau = 0.25; tspan = 0:tau:100;
+    T1=tspan[end]/10;
+    for t=tspan
+        if (t>T1)
+            I=14;
+        else
+            I=0;
+        end;
+        V = V + tau*(0.04*V^2+5*V+140-u+I);
+        u = u + tau*a*(b*V-u);
+        if V > 30
+            push!(VV,30);
+            V = c;
+            u = u + d;
+        else
+            push!(VV,V);
+        end;
+        push!(uu,u);
+    end;
+    plot(tspan,VV, title="(A) tonic spiking",
+         legend=false,
+         xlims=(0, tspan[end]), ylims=(-90,30));
+    plot!([0,T1,T1,tspan[end]],-90.0 .+ [0,0,10,10])
+
+end
+
+izh(a=0.02, b=0.2, c=-65,  d=8)
+```
+
+## 20 cell types?
 
 ```{julia}
 begin
@@ -689,266 +927,6 @@ end
 
 
 
-# Computational Neuroscience Workshop 
-
-# Introduction
-
-* "All models are wrong but some are useful"  (Box, 1976?)
-* Introduction to modelling in computational neuroscience
-
-# Background maths
-
-
-## Euler integration
-
-Given some differential equation for how x changes over time and so
-initial condition (i.e. x = some value at time t = 0), we can
-integrate them numerically using Euler integration.
-
-$\frac{dx}{dt} = f(x,t)$
-
-$X_{n+1} = X_{n}+ h \frac{dx}{dt}$
-
-$X_{n+1} = X_{n}+ h f(X_{n}, nh)$
-
-Depending on the step-size h.
-
-## Trappenberg example (Appendix B)
-
-Solve differential equation
-
-$\frac{dx}{dt} = t -x + 1$
-
-with initial conditions $x(0) = 1$.
-
-Known solution:
-
-$x(t) = \exp(-t) + t$
-
-"""
-
-
-```{julia}
-begin
-	function euler1(h)
-	    tmax = 5.0;                               # max t value
-	    init = 1.0;                               # initial condition
-	    
-	    t = 0:h:tmax;                           # vector of time values
-	    nsteps = length(t);                     # how many steps
-	    x = zeros(nsteps,1);                    # where we will store
-	    # results
-	    x[1] = init;
-	    
-	    
-	    # Start the integration
-	    for i=1:(nsteps-1)
-	        f = t[i] - x[i] + 1;                # evaluate dx/dt
-	        x[i+1] = x[i] + (h*f);
-	    end
-	    ## why need space?
-	    hcat(t, x)
-	end
-	
-	
-	function plot_euler1(h)
-	    res = euler1(h);
-	    t = res[:,1]
-	    x = res[:,2]
-	    xtrue = @. exp(-t) + t;                    # true solution
-	    
-	    plot(t, hcat(x, xtrue), legend=:topleft,
-			ylim=(0,5),
-		xlim=(0,5),
-                marker=:o,
-	         title = "Euler integration",
-	         xlabel="Time (s)", ylabel="x",
-	         label=["estimate" "true"])
-	end
-end
-```
-
-
-Slider??
-```{julia}
-## @bind h_step  Slider(0.01:0.01:1; default=0.1, show_value=true) 
-plot_euler1(h_step)
-```
-
-
-
-# Hodgkin-Huxley model
-
-
-## Reminder of the biology
-
-Its all in the channels!
-
-[http://tinyurl.com/matthews-channel](http://tinyurl.com/matthews-channel)
-
-## Reminder of the mathematics
-
-See [hh_maths.pdf](hh_maths.pdf)
-
-
-Julia has built-in functions for efficient numerical integration of
-ODEs.  We will use them here so that we focus on the problem and not the
-numerics.
-    
-Run with default I=0.1 and then compare with I=10.
-
-```{julia}
-include("hhode.jl")
-plot_hh(i=0.1)
-```
-
-## Exercises
-
-1. Can you find the critical value of I where you first generate a spike?
-
-2. Can you work out the units on I (check equation 1 and Table 1 of
-   hh_maths.pdf )?
-
-3. Estimate the firing rate (in Hz) for the model as you vary I from 0
-   to 500.  Can you plot a graph of it?  
-   
-4. (Advanced) Apply a pulse of negative current with I=-50
-   for 5 ms followed by I=0 and describe what happens.
-
-5. Try other manipulations, e.g. what if you set dh/dt to
-   zero?  What would this simulate?
-
-
-
-```{julia}
-begin
-	function hhode!(dy, y, p, t)
-	    v = y[1]; m = y[2]; n = y[3]; h = y[4];
-	
-	    # Some constants of the system.
-	    I = p[1]
-	    gna = 1200; gk=360; gl=3;
-	    El=-54.387; Ek=-77.0; Ena=100.0;
-	    C = 10;
-	
-	
-	    am = 0.1*(v+40)/(1-exp(-(v+40)/10));
-	    bm = 4*exp(-(v+65)/18);
-	
-	    ah = 0.07*exp(-(v+65)/20);
-	    bh = 1/(1+exp(-(v+35)/10));
-	
-	    an = 0.01*(v+55)/(1-exp(-(v+55)/10));
-	    bn = 0.125*exp(-(v+65)/80);
-	
-	    dv = (I - gna*h*(v-Ena)*m^3-gk*(v-Ek)*n^4-gl*(v-El))/C;
-	
-	    dm = am*(1-m) -bm*m;
-	    dh = ah*(1-h) -bh*h;
-	    dn = an*(1-n) -bn*n;
-	
-	    # Return derivatives
-	    dy[1]=dv;
-	    dy[2]=dm;
-	    dy[3]=dn;
-	    dy[4]=dh;
-	
-	end
-	
-	
-	function plot_hh(;i=10)
-	    u0 = [-65.0;0.0529;0.3177;0.5961]
-	    tspan = (0.0,500.0)
-	    p = [i]
-	    prob = ODEProblem(hhode!,u0,tspan,p)
-	    
-	    sol = solve(prob,Vern7());
-	    
-	
-	    l = @layout [a b; c d]
-	    p1 = plot(sol.t, sol[1,:], xlabel="t (ms)", ylabel= "V (mv)", 
-			ylim=(-70,60), legend=false);
-	    p2 = plot(sol.t, sol[2,:], xlabel="t (ms)", ylabel= "m", 
-			ylim=(0,1), legend=false);
-	    p3 = plot(sol.t, sol[3,:], xlabel="t (ms)", ylabel= "n", 
-			ylim=(0,1), legend=false);
-	    p4 = plot(sol.t, sol[4,:], xlabel="t (ms)", ylabel= "h", 
-			ylim=(0,1), legend=false);
-	    plot(p1, p2, p3, p4, layout = l)
-	end
-	
-end
-
-# ╔═╡ abcc39cd-87a1-476f-ba7a-024b7666627c
-## @bind i_step  Slider(0.0:0.1:50; show_value=true)
-
-# ╔═╡ 3099670a-9090-4a65-9bd5-d9a6572b0b89
-plot_hh(i=i_step)
-```
-
-
-# Izhikevich models
-
-
-Let's simplify the models as far as we can; we are going to use the
-simplification due to Izhikevich.
-
-Read [the basic description](http://www.izhikevich.org/human_brain_simulation/Blue_Brain.htm#models%20of%20spiking%20neurons)
-and guess which is the real data.
-
-## The basic model
-
-![the basic model](http://www.izhikevich.org/publications/izhik.gif)
-
-
-## Exercise: Izhikevich
-
-1. [izh.jl](izh.jl) has the basic code for one of the models.  Try to
-   adapt using parameters a,b,c,d to generate each of the plots from
-   above.  e.g. how can you make a chattering cell (CH)?
-
-2. Explore [figure1.jl](figure1.jl).  This regenerates figure 1 of the
-   [2004 paper](http://www.izhikevich.org/publications/whichmod.pdf).
-   See if you can follow in the code how the model is adapted in each
-   case.
-
-```{julia}
-function izh(;a=0.02,b=0.2, c=-65.0, d=6.0)
-    #a=0.02; b=0.2;  c=-65;  d=6;
-    V=-70;  u=b*V;
-    VV=[];  uu=[];
-    tau = 0.25; tspan = 0:tau:100;
-    T1=tspan[end]/10;
-    for t=tspan
-        if (t>T1)
-            I=14;
-        else
-            I=0;
-        end;
-        V = V + tau*(0.04*V^2+5*V+140-u+I);
-        u = u + tau*a*(b*V-u);
-        if V > 30
-            push!(VV,30);
-            V = c;
-            u = u + d;
-        else
-            push!(VV,V);
-        end;
-        push!(uu,u);
-    end;
-    plot(tspan,VV, title="(A) tonic spiking",
-         legend=false,
-         xlims=(0, tspan[end]), ylims=(-90,30));
-    plot!([0,T1,T1,tspan[end]],-90.0 .+ [0,0,10,10])
-
-end
-
-izh(a=0.02, b=0.2, c=-65,  d=8)
-```
-
-## 20 cell types?
-
-
 # Coupling two neurons
 
 
@@ -964,8 +942,8 @@ $S(x) = [ 100(x^2) / (120^2 + x^2) ]_+$
 
 
 
-We will first run the script [WTA2.jl](WTA2.jl) with input to neuron 1 =
-60 and input to neuron 2 = 70.  We will examine the phase plane.
+We will first run WTA2 with input to neuron 1 = 60 and input to neuron
+2 = 70.  We will examine the phase plane.
 
 
 ```{julia}
@@ -1000,12 +978,11 @@ function WTA2(k1, k2)
     end
     Time, X
 end
+```
 
-# ╔═╡ 55ee9223-da6b-4c9e-a099-b3fd55fa6569
-begin
-	time, res = WTA2(70.0, 70.0)
-	plot(time, res', label=["E1" "E2"],	xlabel = "Time", ylabel="Firing rate (Hz)")	
-end
+```{julia}
+time, res = WTA2(60.0, 70.0)
+plot(time, res', label=["E1" "E2"],	xlabel = "Time", ylabel="Firing rate (Hz)")	
 ```
 
 ### Exercises
@@ -1092,11 +1069,10 @@ function IPSPinteractions(Stim1, Stim2, ES, TauSyn)
     end
     Time, X
 end
+```
 
 
-# ╔═╡ afb88af7-026d-46d9-8f64-1de27215899d
-begin
-	time1, X = IPSPinteractions(1.0, 1.1, 5.0, 2.0)
-	plot(time1, X[ [1, 3], :]', label=["E1" "E3"], legend=:topleft)
-end
+```{julia}
+time1, X = IPSPinteractions(1.0, 1.1, 5.0, 2.0)
+plot(time1, X[ [1, 3], :]', label=["E1" "E3"], legend=:topleft)
 ```
