@@ -8,3 +8,6 @@ Please sign-in to register your attendance.
 
 # Getting started
 
+# Questions?
+
+Email me (sje30).
