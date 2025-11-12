@@ -1,0 +1,35 @@
+---
+title: "A julia engine notebook"
+engine: julia
+format:
+  typst:
+    toc: true
+    section-numbering: 1.1.a
+    columns: 1
+---
+
+
+```{julia}
+import Pkg
+Pkg.add("Plots")
+```
+
+```{julia}
+using Plots
+```
+
+
+```{julia}
+1 + 2
+```
+
+
+Now let us try some plotting:
+
+```{julia}
+x = 0:0.01:4pi
+y = sin.(x)
+plot(x,y)
+xlabel!("time (s)")
+ylabel!("amplitude")
+```
