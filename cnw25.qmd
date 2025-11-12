@@ -172,7 +172,8 @@ function plot_hh(;i=10)
 	p = [i]
 	prob = ODEProblem(hhode!,u0,tspan,p)
 	
-	sol = solve(prob,Vern7());
+	##sol = solve(prob,Vern7());
+    sol = solve(prob);
 	
 	
 	l = @layout [a b; c d]
