@@ -10,6 +10,9 @@ Please sign-in to register your attendance.
 
 [simple.ipynb](https://colab.research.google.com/github/sje30/cnw25/blob/main/simple.ipynb)
 
+You may need to change the runtime type from "Julia 1.12" to "Julia"
+on colab.
+
 
 # Key references
 
@@ -18,6 +21,14 @@ Please sign-in to register your attendance.
 2. Izhikevich (2004) [link](http://www.izhikevich.org/publications/whichmod.pdf)
 
 3. Spikes decisions and actions [link](https://archive.org/details/spikesdecisionsa0000wils)
+
+
+# The course
+
+[cnw25.ipynb](https://colab.research.google.com/github/sje30/cnw25/blob/main/cnw25.ipynb)
+
+You may need to change the runtime type from "Julia 1.12" to "Julia"
+on colab.
 
 # Questions?
 
